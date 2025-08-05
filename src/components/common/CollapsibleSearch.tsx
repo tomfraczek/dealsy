@@ -1,7 +1,7 @@
-// src/components/CollapsibleSearch.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, LayoutChangeEvent, StyleSheet, View } from "react-native";
-import { Button, Chip, Searchbar, Text } from "react-native-paper";
+import { Button, Searchbar, Text } from "react-native-paper";
+import { SearchChip } from "./SearchChip";
 
 type Props = {
   expanded: boolean;
@@ -15,7 +15,7 @@ type Props = {
   onPickHistory: (q: string) => void;
 };
 
-export const CollapsibleSearch: React.FC<Props> = ({
+export const CollapsibleSearch = ({
   expanded,
   onToggle,
   searchQuery,
@@ -25,7 +25,7 @@ export const CollapsibleSearch: React.FC<Props> = ({
   isSearching,
   lastSearches,
   onPickHistory,
-}) => {
+}: Props) => {
   const anim = useRef(new Animated.Value(0)).current; // 0 collapsed, 1 expanded
   const [contentHeight, setContentHeight] = useState(0);
 
@@ -33,7 +33,7 @@ export const CollapsibleSearch: React.FC<Props> = ({
     Animated.timing(anim, {
       toValue: expanded ? 1 : 0,
       duration: 220,
-      useNativeDriver: false, // animujemy height
+      useNativeDriver: false,
     }).start();
   }, [expanded, anim]);
 
@@ -85,14 +85,11 @@ export const CollapsibleSearch: React.FC<Props> = ({
             </Text>
             <View style={styles.chipsWrap}>
               {lastSearches.map((search) => (
-                <Chip
+                <SearchChip
                   key={search}
-                  icon="history"
-                  onPress={() => onPickHistory(search)}
-                  style={styles.chip}
-                >
-                  {search}
-                </Chip>
+                  search={search}
+                  onPickHistory={onPickHistory}
+                />
               ))}
             </View>
           </View>
@@ -135,8 +132,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-  },
-  chip: {
-    marginBottom: 8,
   },
 });

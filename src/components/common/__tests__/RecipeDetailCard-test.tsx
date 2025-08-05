@@ -1,6 +1,6 @@
 import { RecipeDetailCard } from "@/src/components/common/RecipeDetailCard";
 import type { RecipeDetail } from "@/src/types/recipe.types";
-import { act, render, screen } from "@testing-library/react-native";
+import { render, screen, waitFor } from "@testing-library/react-native";
 import { Image as ExpoImage } from "expo-image";
 import React from "react";
 import { StyleSheet } from "react-native";
@@ -29,11 +29,10 @@ describe("<RecipeDetailCard />", () => {
     const r = makeRecipe();
     render(<RecipeDetailCard recipe={r} />);
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => {
+      expect(screen.getByText(r.name)).toBeTruthy();
     });
 
-    expect(screen.getByText(r.name)).toBeTruthy();
     expect(screen.getByText("Prep: 20 min")).toBeTruthy();
     expect(screen.getByText("Cook: 15 min")).toBeTruthy();
     expect(screen.getByText("Difficulty: Easy")).toBeTruthy();
@@ -53,19 +52,16 @@ describe("<RecipeDetailCard />", () => {
       <RecipeDetailCard recipe={r} />
     );
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => {
+      const img1 = UNSAFE_getByType(ExpoImage);
+      expect(StyleSheet.flatten(img1.props.style)?.height).toBe(260);
     });
 
-    const img1 = UNSAFE_getByType(ExpoImage);
-    expect(StyleSheet.flatten(img1.props.style)?.height).toBe(260);
+    rerender(<RecipeDetailCard recipe={r} imageHeight={180} />);
 
-    await act(async () => {
-      rerender(<RecipeDetailCard recipe={r} imageHeight={180} />);
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => {
+      const img2 = UNSAFE_getByType(ExpoImage);
+      expect(StyleSheet.flatten(img2.props.style)?.height).toBe(180);
     });
-
-    const img2 = UNSAFE_getByType(ExpoImage);
-    expect(StyleSheet.flatten(img2.props.style)?.height).toBe(180);
   });
 });

@@ -10,7 +10,6 @@ const makeRecipe = (): ApiRecipe =>
     image: "https://cdn.dummyjson.com/recipe-images/1.webp",
     prepTimeMinutes: 20,
     difficulty: "Easy",
-    // Poniższe pola dodaj, jeśli Twój ApiRecipe je wymaga w typach:
     cookTimeMinutes: 15,
     caloriesPerServing: 300,
     cuisine: "Italian",

@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   Appbar,
@@ -126,7 +126,7 @@ export default function Index() {
   const shouldShowEmptyState =
     !!executedQuery && !isSearching && currentRecipes.length === 0;
 
-  const listEmptyComponent = React.useMemo(() => {
+  const listEmptyComponent = useMemo(() => {
     if (isSearching) return <PaperActivity animating size="small" />;
     if (shouldShowEmptyState)
       return (
@@ -137,7 +137,7 @@ export default function Index() {
     return null;
   }, [isSearching, shouldShowEmptyState, executedQuery]);
 
-  const listFooter = React.useMemo(() => {
+  const listFooter = useMemo(() => {
     return isFetchingMore ? (
       <PaperActivity animating style={{ marginVertical: 12 }} />
     ) : null;

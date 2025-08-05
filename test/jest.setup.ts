@@ -15,13 +15,4 @@ jest.mock("expo-image", () => {
   return { Image, default: Image };
 });
 
-// (opcjonalnie) jeśli coś wciąga `expo` i odpala winter runtime
 jest.mock("expo", () => ({}));
-
-// Wycisz znane warningi
-const originalError = console.error;
-console.error = (...args: any[]) => {
-  const msg = String(args[0] ?? "");
-  if (msg.includes("useNativeDriver") || msg.includes("Animated")) return;
-  originalError(...args);
-};

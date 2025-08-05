@@ -1,11 +1,12 @@
 // src/api/queries/useSearchRecipes.ts
 import type { RecipesResponse } from "@/src/types/recipe.types";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { restClient } from "../axios";
 
-// Query key factory
+const PAGE_SIZE = 20;
+
 export const searchRecipesKeys = {
-  all: ["recipes", "search"] as const,
+  all: ["search"] as const,
   list: (query: string) => [...searchRecipesKeys.all, query] as const,
 };
 
@@ -18,14 +19,32 @@ export const getRecipesBySearch = async (
   return response.data;
 };
 
-// Accept options to control 'enabled'
 export const useSearchRecipes = (
   query: string,
   opts?: { enabled?: boolean }
 ) => {
-  return useQuery({
+  const enabled = opts?.enabled ?? false;
+
+  const getSearchPage = async (
+    skip: number,
+    limit = PAGE_SIZE
+  ): Promise<RecipesResponse> => {
+    const { data } = await restClient.get<RecipesResponse>(
+      `/recipes/search?q=${encodeURIComponent(
+        query
+      )}&limit=${limit}&skip=${skip}`
+    );
+    return data;
+  };
+
+  return useInfiniteQuery({
     queryKey: searchRecipesKeys.list(query),
-    queryFn: () => getRecipesBySearch(query),
-    enabled: opts?.enabled ?? false, // default: fetch only when refetch() is called
+    enabled,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => getSearchPage(pageParam),
+    getNextPageParam: (lastPage) => {
+      const nextSkip = lastPage.skip + lastPage.limit;
+      return nextSkip < lastPage.total ? nextSkip : undefined;
+    },
   });
 };

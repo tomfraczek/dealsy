@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   Appbar,
@@ -22,10 +22,9 @@ export default function Index() {
   const router = useRouter();
   const { colors } = useTheme();
 
-  const { data, isLoading, error } = useRecipes();
-
   const [expanded, setExpanded] = useState(false);
 
+  // separate input from executed query
   const [searchInput, setSearchInput] = useState("");
   const [executedQuery, setExecutedQuery] = useState<string | null>(null);
 
@@ -35,9 +34,23 @@ export default function Index() {
     loaded: historyLoaded,
   } = useLastSearches(5);
 
+  // Base list — infinite
+  const {
+    data: baseData,
+    isLoading,
+    error,
+    fetchNextPage: fetchNextBase,
+    hasNextPage: hasNextBase,
+    isFetchingNextPage: isFetchingNextBase,
+  } = useRecipes();
+
+  // Search list — infinite (enabled only after pressing Search)
   const {
     data: searchData,
     isFetching: isSearching,
+    fetchNextPage: fetchNextSearch,
+    hasNextPage: hasNextSearch,
+    isFetchingNextPage: isFetchingNextSearch,
     refetch: refetchSearch,
   } = useSearchRecipes(executedQuery ?? "", { enabled: !!executedQuery });
 
@@ -46,7 +59,7 @@ export default function Index() {
     if (!q) return;
     await addHistory(q);
     setExecutedQuery(q);
-    await refetchSearch();
+    await refetchSearch(); // fetch first page of search results
   };
 
   const onPickHistory = async (q: string) => {
@@ -58,17 +71,51 @@ export default function Index() {
 
   const onClearSearch = () => {
     setSearchInput("");
-    setExecutedQuery(null);
+    setExecutedQuery(null); // back to base list
   };
 
-  const recipesToShow = useMemo<ApiRecipe[] | undefined>(() => {
-    if (executedQuery) return searchData?.recipes;
-    return data?.recipes;
-  }, [executedQuery, searchData?.recipes, data?.recipes]);
+  // Flatten pages into a single array
+  const pages = executedQuery ? searchData?.pages : baseData?.pages;
+  const currentRecipes = useMemo<ApiRecipe[]>(
+    () => (pages ? pages.flatMap((p) => p.recipes) : []),
+    [pages]
+  );
 
-  const currentRecipes = recipesToShow ?? [];
+  // Infinite scroll controls
+  const canLoadMore = executedQuery ? !!hasNextSearch : !!hasNextBase;
+  const isFetchingMore = executedQuery
+    ? isFetchingNextSearch
+    : isFetchingNextBase;
+
+  const handleEndReached = () => {
+    if (canLoadMore && !isFetchingMore) {
+      if (executedQuery) {
+        fetchNextSearch();
+      } else {
+        fetchNextBase();
+      }
+    }
+  };
+
   const shouldShowEmptyState =
-    executedQuery && !isSearching && currentRecipes.length === 0;
+    !!executedQuery && !isSearching && currentRecipes.length === 0;
+
+  const listEmptyComponent = useMemo(() => {
+    if (isSearching) return <PaperActivity animating size="small" />;
+    if (shouldShowEmptyState)
+      return (
+        <Text variant="bodyMedium" style={styles.empty}>
+          No results for “{executedQuery}”.
+        </Text>
+      );
+    return null;
+  }, [isSearching, shouldShowEmptyState, executedQuery]);
+
+  const listFooter = useMemo(() => {
+    return isFetchingMore ? (
+      <PaperActivity animating style={{ marginVertical: 12 }} />
+    ) : null;
+  }, [isFetchingMore]);
 
   if (isLoading || !historyLoaded) {
     return (
@@ -121,19 +168,15 @@ export default function Index() {
         )}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          isSearching ? (
-            <PaperActivity animating size="small" />
-          ) : shouldShowEmptyState ? (
-            <Text variant="bodyMedium" style={styles.empty}>
-              No results for “{executedQuery}”.
-            </Text>
-          ) : null
-        }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
+        ListEmptyComponent={listEmptyComponent}
+        ListFooterComponent={listFooter}
       />
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

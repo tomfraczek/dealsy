@@ -1,106 +1,96 @@
+// app/index.tsx
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import React from "react";
+import { StyleSheet, View } from "react-native";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  StyleSheet,
+  Appbar,
+  Card,
+  ActivityIndicator as PaperActivity,
   Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+  useTheme,
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRecipes } from "../api/queries/useGetRecipes";
 import type { ApiRecipe } from "../types/recipe.types";
 
 export default function Index() {
   const router = useRouter();
   const { data, isLoading, error } = useRecipes();
+  const { colors } = useTheme();
 
   const renderItem = ({ item }: { item: ApiRecipe }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/recipe/${item.id}`)}
-    >
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={styles.title}>{item.name}</Text>
-        <Text style={styles.meta}>Prep Time: {item.prepTimeMinutes} min</Text>
-        <Text style={styles.meta}>Difficulty: {item.difficulty}</Text>
-      </View>
-    </TouchableOpacity>
+    <Card style={styles.card} onPress={() => router.push(`/recipe/${item.id}`)}>
+      <Card.Cover source={{ uri: item.image }} />
+      <Card.Content style={styles.cardContent}>
+        <Text variant="titleLarge">{item.name}</Text>
+        <Text variant="bodyMedium">Prep Time: {item.prepTimeMinutes} min</Text>
+        <Text variant="bodySmall">Difficulty: {item.difficulty}</Text>
+      </Card.Content>
+    </Card>
   );
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.center} edges={["bottom", "left", "right"]}>
+        <PaperActivity animating size="large" />
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>
-          Nie udało się załadować przepisów. Spróbuj ponownie.
+      <SafeAreaView style={styles.center} edges={["bottom", "left", "right"]}>
+        <Text variant="bodyMedium" style={{ color: colors.error }}>
+          Failed to load recipes. Please try again.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <FlatList
+    <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
+      <View style={styles.headerContainer}>
+        <Appbar.Header>
+          <Appbar.Content title="Recipes" />
+        </Appbar.Header>
+        <Text variant="bodyMedium" style={styles.headerDescription}>
+          Explore our curated collection of delicious recipes—find inspiration
+          for every meal!
+        </Text>
+      </View>
+
+      <FlashList
         data={data?.recipes}
-        keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        estimatedItemSize={150}
         contentContainerStyle={styles.list}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
+  container: { flex: 1, backgroundColor: "#fff" },
+  headerContainer: {},
+  headerDescription: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    color: "#666",
+    textAlign: "center",
   },
-  list: {
-    padding: 16,
-  },
+  list: { padding: 16 },
   card: {
-    flexDirection: "row",
     marginBottom: 16,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 8,
-    overflow: "hidden",
     elevation: 2,
   },
-  image: {
-    width: 100,
-    height: 100,
-  },
-  info: {
-    flex: 1,
-    padding: 8,
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  meta: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 4,
+  cardContent: {
+    paddingVertical: 8,
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  errorText: {
-    color: "red",
-    fontSize: 16,
   },
 });

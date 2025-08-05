@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { DefaultTheme, PaperProvider } from "react-native-paper";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ReactQueryProvider } from "../context/ReactQueryProvider";
 
 const theme = {
@@ -13,10 +14,12 @@ const theme = {
 
 export default function RootLayout() {
   return (
-    <ReactQueryProvider>
-      <PaperProvider theme={theme}>
-        <Stack screenOptions={{ headerShown: false }} />
-      </PaperProvider>
-    </ReactQueryProvider>
+    <SafeAreaProvider>
+      <ReactQueryProvider>
+        <PaperProvider theme={theme}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </PaperProvider>
+      </ReactQueryProvider>
+    </SafeAreaProvider>
   );
 }

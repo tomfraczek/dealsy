@@ -1,16 +1,10 @@
-// app/index.tsx
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, LayoutChangeEvent, StyleSheet, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { StyleSheet } from "react-native";
 import {
   Appbar,
-  Button,
-  Card,
-  Chip,
   ActivityIndicator as PaperActivity,
-  Searchbar,
   Text,
   useTheme,
 } from "react-native-paper";
@@ -20,91 +14,63 @@ import { useRecipes } from "../api/queries/useGetRecipes";
 import { useSearchRecipes } from "../api/queries/useSearchRecipes";
 import type { ApiRecipe } from "../types/recipe.types";
 
-const LAST_SEARCHES_KEY = "lastSearches";
+import { CollapsibleSearch } from "@/src/components/common/CollapsibleSearch";
+import { RecipeCard } from "@/src/components/common/RecipeCard";
+import { useLastSearches } from "@/src/hooks/useLastSearches";
 
 export default function Index() {
   const router = useRouter();
   const { colors } = useTheme();
 
-  // Base list
   const { data, isLoading, error } = useRecipes();
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  const [searchInput, setSearchInput] = useState("");
+  const [executedQuery, setExecutedQuery] = useState<string | null>(null);
+
+  const {
+    items: lastSearches,
+    add: addHistory,
+    loaded: historyLoaded,
+  } = useLastSearches(5);
+
   const {
     data: searchData,
     isFetching: isSearching,
-    refetch: doFetchSearch,
-  } = useSearchRecipes(searchQuery);
-
-  // History
-  const [lastSearches, setLastSearches] = useState<string[]>([]);
-
-  // Collapsible search container (in-flow, no absolute)
-  const [expanded, setExpanded] = useState(false);
-  const anim = useRef(new Animated.Value(0)).current; // 0=collapsed, 1=expanded
-  const [contentHeight, setContentHeight] = useState(0);
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: expanded ? 1 : 0,
-      duration: 220,
-      useNativeDriver: false, // animujemy height -> bez native drivera
-    }).start();
-  }, [expanded]);
-
-  // measure real content height once (or when layout changes)
-  const onContentLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h !== contentHeight) setContentHeight(h);
-  };
-
-  const containerHeight = useMemo(
-    () =>
-      anim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, Math.max(contentHeight, 1)], // unikamy 0 -> buga
-        extrapolate: "clamp",
-      }),
-    [anim, contentHeight]
-  );
-
-  // Load history
-  useEffect(() => {
-    (async () => {
-      const stored = await SecureStore.getItemAsync(LAST_SEARCHES_KEY);
-      if (stored) setLastSearches(JSON.parse(stored));
-    })();
-  }, []);
-
-  const persistHistory = async (q: string) => {
-    const next = [q, ...lastSearches.filter((x) => x !== q)].slice(0, 5);
-    setLastSearches(next);
-    await SecureStore.setItemAsync(LAST_SEARCHES_KEY, JSON.stringify(next));
-  };
+    refetch: refetchSearch,
+  } = useSearchRecipes(executedQuery ?? "", { enabled: !!executedQuery });
 
   const onSearch = async () => {
-    const q = searchQuery.trim();
+    const q = searchInput.trim();
     if (!q) return;
-    await persistHistory(q);
-    doFetchSearch();
+    await addHistory(q);
+    setExecutedQuery(q);
+    await refetchSearch();
   };
 
-  const useSearchResults = searchQuery.length > 0;
-  const recipesToShow = useSearchResults ? searchData?.recipes : data?.recipes;
+  const onPickHistory = async (q: string) => {
+    setSearchInput(q);
+    await addHistory(q);
+    setExecutedQuery(q);
+    await refetchSearch();
+  };
 
-  const renderItem = ({ item }: { item: ApiRecipe }) => (
-    <Card style={styles.card} onPress={() => router.push(`/recipe/${item.id}`)}>
-      <Card.Cover source={{ uri: item.image }} />
-      <Card.Content style={styles.cardContent}>
-        <Text variant="titleLarge">{item.name}</Text>
-        <Text variant="bodyMedium">Prep Time: {item.prepTimeMinutes} min</Text>
-        <Text variant="bodySmall">Difficulty: {item.difficulty}</Text>
-      </Card.Content>
-    </Card>
-  );
+  const onClearSearch = () => {
+    setSearchInput("");
+    setExecutedQuery(null);
+  };
 
-  if (isLoading) {
+  const recipesToShow = useMemo<ApiRecipe[] | undefined>(() => {
+    if (executedQuery) return searchData?.recipes;
+    return data?.recipes;
+  }, [executedQuery, searchData?.recipes, data?.recipes]);
+
+  const currentRecipes = recipesToShow ?? [];
+  const shouldShowEmptyState =
+    executedQuery && !isSearching && currentRecipes.length === 0;
+
+  if (isLoading || !historyLoaded) {
     return (
       <SafeAreaView style={styles.center} edges={["bottom", "left", "right"]}>
         <PaperActivity animating size="large" />
@@ -133,124 +99,54 @@ export default function Index() {
         />
       </Appbar.Header>
 
-      {/* Collapsible search area sits directly under the header, within safe area */}
-      <Animated.View style={[styles.collapse, { height: containerHeight }]}>
-        {/* This is the measured content (overflow hidden by parent) */}
-        <View onLayout={onContentLayout} style={styles.searchBlock}>
-          <Searchbar
-            placeholder="Search recipes..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={onSearch}
-            style={styles.searchbar}
-            inputStyle={styles.searchInput}
-            returnKeyType="search"
-            clearIcon="close"
-            onIconPress={onSearch}
-          />
-          <Button
-            mode="contained-tonal"
-            icon="magnify"
-            onPress={onSearch}
-            style={styles.searchButton}
-          >
-            Search
-          </Button>
-
-          {isSearching ? (
-            <PaperActivity animating size="small" style={styles.searchLoader} />
-          ) : null}
-
-          {lastSearches.length > 0 && (
-            <View style={styles.historyContainer}>
-              <Text variant="labelLarge" style={styles.historyLabel}>
-                Recent searches
-              </Text>
-              <View style={styles.chipsWrap}>
-                {lastSearches.map((q) => (
-                  <Chip
-                    key={q}
-                    icon="history"
-                    onPress={() => {
-                      setSearchQuery(q);
-                      persistHistory(q);
-                      doFetchSearch();
-                    }}
-                    style={styles.chip}
-                  >
-                    {q}
-                  </Chip>
-                ))}
-              </View>
-            </View>
-          )}
-        </View>
-      </Animated.View>
+      <CollapsibleSearch
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        searchQuery={searchInput}
+        setSearchQuery={setSearchInput}
+        onSearch={onSearch}
+        onClear={onClearSearch}
+        isSearching={isSearching}
+        lastSearches={lastSearches}
+        onPickHistory={onPickHistory}
+      />
 
       <FlashList
-        data={recipesToShow}
-        renderItem={renderItem}
+        data={currentRecipes}
+        renderItem={({ item }) => (
+          <RecipeCard
+            recipe={item}
+            onPress={() => router.push(`/recipe/${item.id}`)}
+          />
+        )}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          isSearching ? (
+            <PaperActivity animating size="small" />
+          ) : shouldShowEmptyState ? (
+            <Text variant="bodyMedium" style={styles.empty}>
+              No results for “{executedQuery}”.
+            </Text>
+          ) : null
+        }
       />
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-
-  // Collapsible wrapper (animated height)
-  collapse: {
-    overflow: "hidden",
+  container: {
+    flex: 1,
     backgroundColor: "#fff",
   },
-  searchBlock: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
+  list: {
+    padding: 16,
   },
-  searchbar: {
-    borderRadius: 12,
-  },
-  searchInput: {
-    // lekko większy tekst, czytelny
-  },
-  searchButton: {
-    alignSelf: "flex-end",
-    marginTop: 8,
-  },
-  searchLoader: {
-    marginTop: 8,
-  },
-  historyContainer: {
-    marginTop: 8,
-  },
-  historyLabel: {
-    marginBottom: 6,
+  empty: {
+    textAlign: "center",
     color: "#666",
+    marginTop: 24,
   },
-  chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chip: {
-    marginRight: 8,
-    marginBottom: 8,
-  },
-
-  list: { padding: 16 },
-
-  card: {
-    marginBottom: 16,
-    elevation: 2,
-  },
-  cardContent: {
-    paddingVertical: 8,
-  },
-
   center: {
     flex: 1,
     justifyContent: "center",

@@ -204,6 +204,8 @@ export default function Index() {
         onEndReachedThreshold={0.4}
         ListEmptyComponent={listEmptyComponent}
         ListFooterComponent={listFooter}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
       />
     </SafeAreaView>
   );

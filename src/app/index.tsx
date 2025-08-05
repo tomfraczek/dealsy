@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   Appbar,
@@ -17,6 +17,8 @@ import type { ApiRecipe } from "../types/recipe.types";
 import { CollapsibleSearch } from "@/src/components/common/CollapsibleSearch";
 import { RecipeCard } from "@/src/components/common/RecipeCard";
 import { useLastSearches } from "@/src/hooks/useLastSearches";
+
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 export default function Index() {
   const router = useRouter();
@@ -42,8 +44,8 @@ export default function Index() {
     fetchNextPage: fetchNextBase,
     hasNextPage: hasNextBase,
     isFetchingNextPage: isFetchingNextBase,
-    refetch: refetchBase, // <- for pull-to-refresh
-    isRefetching: isRefetchingBase, // <- refetching indicator
+    refetch: refetchBase,
+    isRefetching: isRefetchingBase,
   } = useRecipes();
 
   // Search list — infinite (enabled only after pressing Search)
@@ -53,8 +55,8 @@ export default function Index() {
     fetchNextPage: fetchNextSearch,
     hasNextPage: hasNextSearch,
     isFetchingNextPage: isFetchingNextSearch,
-    refetch: refetchSearch, // <- do pull-to-refresh
-    isRefetching: isRefetchingSearch, // <- refetching indicator
+    refetch: refetchSearch,
+    isRefetching: isRefetchingSearch,
   } = useSearchRecipes(executedQuery ?? "", { enabled: !!executedQuery });
 
   const onSearch = async () => {
@@ -100,15 +102,26 @@ export default function Index() {
     }
   };
 
-  // Pull-to-refresh
-  const refreshing = executedQuery ? isRefetchingSearch : isRefetchingBase;
-  const onRefresh = () => {
-    if (executedQuery) {
-      refetchSearch();
-    } else {
-      refetchBase();
+  // --- Pull-to-refresh with minimum 1s spinner ---
+  const [refreshingUI, setRefreshingUI] = useState(false);
+  const backendRefreshing = executedQuery
+    ? isRefetchingSearch
+    : isRefetchingBase;
+  const refreshing = refreshingUI || backendRefreshing;
+
+  const onRefresh = async () => {
+    if (refreshing) return;
+    setRefreshingUI(true);
+    try {
+      await Promise.all([
+        executedQuery ? refetchSearch() : refetchBase(),
+        delay(1000),
+      ]);
+    } finally {
+      setRefreshingUI(false);
     }
   };
+  // --- end pull-to-refresh ---
 
   const shouldShowEmptyState =
     !!executedQuery && !isSearching && currentRecipes.length === 0;
@@ -129,6 +142,16 @@ export default function Index() {
       <PaperActivity animating style={{ marginVertical: 12 }} />
     ) : null;
   }, [isFetchingMore]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: ApiRecipe }) => (
+      <RecipeCard
+        recipe={item}
+        onPress={() => router.push(`/recipe/${item.id}`)}
+      />
+    ),
+    [router]
+  );
 
   if (isLoading || !historyLoaded) {
     return (
@@ -173,18 +196,12 @@ export default function Index() {
 
       <FlashList
         data={currentRecipes}
-        renderItem={({ item }) => (
-          <RecipeCard
-            recipe={item}
-            onPress={() => router.push(`/recipe/${item.id}`)}
-          />
-        )}
+        renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
+        drawDistance={800}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
         ListEmptyComponent={listEmptyComponent}
         ListFooterComponent={listFooter}
       />

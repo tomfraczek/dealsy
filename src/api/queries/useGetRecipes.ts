@@ -7,9 +7,13 @@ export const getRecipes = async (): Promise<RecipesResponse> => {
   return response.data;
 };
 
+export const recipes = {
+  all: ["recipes"] as const,
+};
+
 export const useRecipes = () => {
   return useQuery({
-    queryKey: ["recipes"],
+    queryKey: recipes.all,
     queryFn: getRecipes,
   });
 };

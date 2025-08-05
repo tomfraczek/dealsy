@@ -64,7 +64,6 @@ export default function Index() {
         data={data?.recipes}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
-        estimatedItemSize={150}
         contentContainerStyle={styles.list}
       />
     </SafeAreaView>

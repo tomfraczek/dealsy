@@ -1,0 +1,15 @@
+import { RecipeDetail } from "@/src/types/recipe.types";
+import { useQuery } from "@tanstack/react-query";
+import { restClient } from "../axios";
+
+export const getRecipe = async (id: number): Promise<RecipeDetail> => {
+  const response = await restClient.get<RecipeDetail>(`/recipes/${id}`);
+  return response.data;
+};
+
+export const useGetRecipe = (id: number) => {
+  return useQuery({
+    queryKey: ["recipe", id],
+    queryFn: () => getRecipe(id),
+  });
+};

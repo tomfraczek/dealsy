@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   Appbar,
@@ -42,6 +42,8 @@ export default function Index() {
     fetchNextPage: fetchNextBase,
     hasNextPage: hasNextBase,
     isFetchingNextPage: isFetchingNextBase,
+    refetch: refetchBase, // <- for pull-to-refresh
+    isRefetching: isRefetchingBase, // <- refetching indicator
   } = useRecipes();
 
   // Search list — infinite (enabled only after pressing Search)
@@ -51,7 +53,8 @@ export default function Index() {
     fetchNextPage: fetchNextSearch,
     hasNextPage: hasNextSearch,
     isFetchingNextPage: isFetchingNextSearch,
-    refetch: refetchSearch,
+    refetch: refetchSearch, // <- do pull-to-refresh
+    isRefetching: isRefetchingSearch, // <- refetching indicator
   } = useSearchRecipes(executedQuery ?? "", { enabled: !!executedQuery });
 
   const onSearch = async () => {
@@ -97,10 +100,20 @@ export default function Index() {
     }
   };
 
+  // Pull-to-refresh
+  const refreshing = executedQuery ? isRefetchingSearch : isRefetchingBase;
+  const onRefresh = () => {
+    if (executedQuery) {
+      refetchSearch();
+    } else {
+      refetchBase();
+    }
+  };
+
   const shouldShowEmptyState =
     !!executedQuery && !isSearching && currentRecipes.length === 0;
 
-  const listEmptyComponent = useMemo(() => {
+  const listEmptyComponent = React.useMemo(() => {
     if (isSearching) return <PaperActivity animating size="small" />;
     if (shouldShowEmptyState)
       return (
@@ -111,7 +124,7 @@ export default function Index() {
     return null;
   }, [isSearching, shouldShowEmptyState, executedQuery]);
 
-  const listFooter = useMemo(() => {
+  const listFooter = React.useMemo(() => {
     return isFetchingMore ? (
       <PaperActivity animating style={{ marginVertical: 12 }} />
     ) : null;
@@ -170,6 +183,8 @@ export default function Index() {
         contentContainerStyle={styles.list}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={listEmptyComponent}
         ListFooterComponent={listFooter}
       />

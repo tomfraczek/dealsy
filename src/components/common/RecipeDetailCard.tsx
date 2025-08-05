@@ -54,7 +54,7 @@ export const RecipeDetailCard = memo(function RecipeDetailCard({
         </Text>
         {recipe.ingredients.map((ing, i) => (
           <Text key={i} variant="bodyMedium">
-            • {ing}
+            -{ing}
           </Text>
         ))}
 

@@ -3,7 +3,10 @@ import { Image } from "expo-image";
 import React, { memo } from "react";
 import { Card, Text } from "react-native-paper";
 
-type Props = { recipe: ApiRecipe; onPress: () => void };
+type Props = {
+  recipe: ApiRecipe;
+  onPress: () => void;
+};
 
 export const RecipeCard = memo(function RecipeCard({ recipe, onPress }: Props) {
   return (
